@@ -1,10 +1,10 @@
-//    dataSource mocker v0.3
+//    dataSource mocker v0.4
 //    (c) 2012-2013 caicanliang, faller@faller.cn
 //    freely distributed under the MIT license.
-//    use for mocking ajax request & response
-//
-//    usage eg.
-//    var fruitsDataSource = mock({
+//    Mocking dataSource by javascript, providing save, remove, query and sort
+
+//    create eg.
+//    var fruitsDataSource = Mocker.mock({
 //        template: { fact: 'suck' },
 //        amount: 100,
 //        idAttribute: 'id',
@@ -18,18 +18,22 @@
 //        }],
 //        rate: 1000
 //    });
-//
+
+//    or with AMD.
+//    require( [ 'mocker' ], function( Mocker ) { } );
+
+//    query eg.
 //    fruitsDataSource({
 //        params: {
-//            query: 'type gte a, type lte z, time gt 0',
-//            sort: 'type asc, time desc',
+//            query: 'type gte {a}, type lte {z}, time gt {0}',   // or json format: [ { key: 'type', operator: 'like', value: 'apple' } ]
+//            sort: 'type asc, time desc',                        // or json format: [ { key: 'time', order: 'desc' } ]
 //            skip: 0,
 //            limit: 100,
 //            count: true
 //        },
 //        success: function( data ) {
-//            console.log( 'data count:' + data.count );
-//            console.log( 'data list:' );
+//            console.log( 'data count: ' + data.count );
+//            console.log( 'data list: ' );
 //            console.log( data.list );
 //        },
 //        error: function() {
@@ -37,148 +41,158 @@
 //        }
 //    });
 
-(function( undefined ) {
-    // Establish the root object, `window` in the browser, or `global` on the server.
-    var root = this;
-    root.mock = function( opts ) {
-        var options = _.extend( { template: {}, rate: 1000 }, opts );
-        var items = (function() {
-            var timeSeed = new Date().getTime();
-            var items = [];
-            var i = options.amount;
-            while ( i-- ) {
-                var item = deepCopy( options.template );  // deep clone
-                options.idAttribute && ( item[ options.idAttribute ] = i );
-                options.timeAttribute && ( item[ options.timeAttribute ] = timeSeed - 1000 * i );
-                _.each( options.randomAttributes, function( randomAttribute ) {
-                    item[ randomAttribute.key ] = randomAttribute.values[ _.random( 0, randomAttribute.values.length - 1 ) ];
-                });
-                items.unshift( item );
-            }
-            // to shuffle items order
-            return _.shuffle( items );
-        })();
+//    save eg.
+//    fruitsDataSource({
+//        params: {
+//            save: {                                             // or string format: "{ 'type': 'orange', 'taste': 'bad'}"
+//                type: 'apple',
+//                taste: 'awesome',
+//                time: new Date().getTime()
+//            }
+//        },
+//        success: function( data ) {
+//            console.log( 'data id: ' + data.id );
+//        }
+//    });
 
-        return function dataSource( args ){
-            var params = _.extend( { skip:0, limit:1000000 }, args.params );
+//    remove eg.
+//    fruitsDataSource({
+//        params: {
+//            remove: 'taste eq {shit smells}'                    // or json format: [ { key: 'taste', operator: 'nq', value: 'awesome' } ]
+//        },
+//        success: function( count ) {
+//            console.log( 'data count of remove: ' + count );
+//        }
+//    });
 
-            var toReturn = {
-                count: null,
-                list: []
-            };
+(function( root, factory ) {
+    if ( typeof define === 'function' && define.amd ) {
+        // AMD. Register as an anonymous module.
+        define( [ 'underscore' ], factory );
+    } else {
+        // Browser globals
+        root.Mocker = factory( root._ );
+    }
+})( this, function( _ ) {
 
-            setTimeout( function() {
-                if ( params.query ) {
-                    var query = _.isArray( params.query ) ? params.query :
-                        _.map( params.query.split( ',' ), function( current ) {
-                            current = trim( current ).split( ' ' );
-                            return {
-                                key: trim( current[ 0 ] ),
-                                operator: trim( current[ 1 ] ),
-                                value: trim( current[ 2 ] )
-                            };
-                        });
-
-                    var i = items.length;
-                    while ( i-- ) {
-                        var currentData = items[ i ];
-                        var j = query.length;
-                        if ( j === 0 ) {
-                            toReturn.list.unshift( currentData );
-                        } else {
-                            while ( j-- ) {
-                                var currentQuery = query[ j ];
-                                var isMatch = false;
-                                switch ( currentQuery.operator ) {
-                                    case 'lt' : if ( currentData[ currentQuery.key ] <  currentQuery.value ) isMatch = true; break;
-                                    case 'lte': if ( currentData[ currentQuery.key ] <= currentQuery.value ) isMatch = true; break;
-                                    case 'eq' : if ( currentData[ currentQuery.key ] == currentQuery.value ) isMatch = true; break;
-                                    case 'ne' : if ( currentData[ currentQuery.key ] != currentQuery.value ) isMatch = true; break;
-                                    case 'gt' : if ( currentData[ currentQuery.key ] >  currentQuery.value ) isMatch = true; break;
-                                    case 'gte': if ( currentData[ currentQuery.key ] >= currentQuery.value ) isMatch = true; break;
-                                    case 'like' : if ( currentData[ currentQuery.key ].indexOf( currentQuery.value ) > -1 ) isMatch = true; break;
-                                    default: console.error( 'unsupport operator: ' + currentQuery.operator );
-                                }
-                                if ( !isMatch ) {
-                                    break;
-                                } else if ( j === 0 ) {
-                                    toReturn.list.unshift( currentData );
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    toReturn.list = items.concat();
-                }
-
-                if ( params.sort ) {
-                    var sort = _.isArray( params.sort ) ? params.sort :
-                        _.map( params.sort.split( ',' ), function( current ) {
-                            current = trim( current ).split( ' ' );
-                            return {
-                                key: trim( current[ 0 ] ),
-                                order: trim( current[ 1 ] )
-                            };
-                        });
-
-                    // add next reference for chaining
-                    for ( var i = 0, length = sort.length; i < length - 1 ; i++ ) {
-                        sort[ i ].next = sort[ i + 1 ];
-                    }
-
-                    if ( sort.length )
-                        toReturn.list = doSort( toReturn.list, sort[ 0 ] );
-
-                    function doSort( currentArray, currentOrder ) {
-                        // separate by group
-                        var groups = _.groupBy( currentArray, function( a ) {
-                            return a[ currentOrder.key ];
-                        });
-
-                        // sort elements of groups by recursion
-                        if ( currentOrder.next ) {
-                            var self = arguments.callee;
-                            _.each( groups, function( group, key ) {
-                                groups[ key ] = self( group, currentOrder.next );
-                            });
-                        }
-
-                        // sort the keys of groups
-                        var keys = _.keys( groups ).sort( function( a, b ) {
-                            var direction = ( currentOrder.order === 'asc' ) ? 1 : -1;
-                            var result = ( a > b ) ? 1 : -1;
-                            return direction * result;
-                        });
-
-                        // link up the groups
-                        var sortedArray = [];
-                        _.each( keys, function( key ) {
-                            sortedArray = sortedArray.concat( groups[ key ] );
-                        });
-                        return sortedArray;
-                    }
-                }
-
-                if ( params.count === true ) {
-                    toReturn.count = toReturn.list.length;
-                }
-
-                toReturn.list = toReturn.list.slice( params.skip, params.skip + Math.min( params.limit, toReturn.list.length - params.skip ) );
-
-                args.success( toReturn );
-            }, options.rate );
-
-        };
+    var generateItems = function( configs ) {
+        var items = [];
+        var timeSeed = new Date().getTime();
+        var i = configs.amount;
+        while ( i-- ) {
+            var item = deepClone( configs.template );
+            configs.idAttribute && ( item[ configs.idAttribute ] = i );
+            configs.timeAttribute && ( item[ configs.timeAttribute ] = timeSeed - 1000 * i );
+            _.each( configs.randomAttributes, function( randomAttribute ) {
+                item[ randomAttribute.key ] = randomAttribute.values[ _.random( 0, randomAttribute.values.length - 1 ) ];
+            });
+            items.unshift( item );
+        }
+        // to shuffle items order
+        return _.shuffle( items );
     };
 
-    var trim = (function() {
-        var rtrim = /^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g;
-        return function( text ) {
-            return text == null ? '' : ( text + '' ).replace( rtrim, '' );
-        };
-    })();
+    var saveItem = function( items, item, configs ) {
+        if ( configs.idAttribute && item[ configs.idAttribute ] != null ) {
+            // update
+            return _.extend( _.find( items, function( current ) {
+                return current[ configs.idAttribute ] === item[ configs.idAttribute ];
+            }), item );
+        } else {
+            // insert
+            configs.idAttribute && ( item[ configs.idAttribute ] = items.length );
+            items.unshift( deepClone( item ) );
+            return item;
+        }
+    };
 
-    var deepCopy = function( obj ) {
+    var queryItems = function( items, queries, onMatch ) {
+        var result = _.filter( items, function( item ) {
+            return _.every( queries, function( query ){
+                switch ( query.operator ) {
+                    case 'lt' : return ( item[ query.key ] <  query.value ) ? true : false;
+                    case 'lte': return ( item[ query.key ] <= query.value ) ? true : false;
+                    case 'eq' : return ( item[ query.key ] == query.value ) ? true : false;
+                    case 'ne' : return ( item[ query.key ] != query.value ) ? true : false;
+                    case 'gt' : return ( item[ query.key ] >  query.value ) ? true : false;
+                    case 'gte': return ( item[ query.key ] >= query.value ) ? true : false;
+                    case 'like' : return ( item[ query.key ].indexOf( query.value ) > -1 ) ? true : false;
+                    default: console && console.error && console.error( 'unsupport operator: ' + query.operator ); return false;
+                }
+            });
+        });
+        _.isFunction( onMatch ) && _.each( result, onMatch );
+        return deepClone( result );
+    };
+
+    var removeItems = function( items, query ) {
+        return queryItems( items, query, function( item, index, _items ) {
+            delete items[ index ];
+        }).length;
+    };
+
+    var sortItems = function( items, sort ) {
+        // add next reference for chaining
+        for ( var i = 0, length = sort.length; i < length - 1 ; i++ ) {
+            sort[ i ].next = sort[ i + 1 ];
+        }
+
+        if ( sort.length ) return ( function doSort( currentArray, currentOrder ) {
+            // separate by group
+            var groups = _.groupBy( currentArray, function( a ) {
+                return a[ currentOrder.key ];
+            });
+
+            // sort elements of groups by recursion
+            if ( currentOrder.next ) {
+                var self = arguments.callee;
+                _.each( groups, function( group, key ) {
+                    groups[ key ] = self( group, currentOrder.next );
+                });
+            }
+
+            // sort the keys of groups
+            var keys = _.keys( groups ).sort( function( a, b ) {
+                var direction = ( currentOrder.order === 'asc' ) ? 1 : -1;
+                var result = ( a > b ) ? 1 : -1;
+                return direction * result;
+            });
+
+            // link up the groups
+            var sortedArray = [];
+            _.each( keys, function( key ) {
+                sortedArray = sortedArray.concat( groups[ key ] );
+            });
+            return sortedArray;
+        })( items, sort[ 0 ] );
+    };
+
+    var parseQuery = function( queries ) {
+        return _.isArray( queries ) ? queries :
+            _.map( queries.replace( /^\s+|\s*\}\s*$/g, '' ).split( /\s*\}\s*\,\s*/ ), function( current ) {
+                var divide = current.lastIndexOf('{');
+                var front = current.substring( 0, divide ).replace( /\s+$/, '' ).split( /\s+/ );
+                var behind = current.substring( divide + 1 ).replace( /^\s+/, '' );
+                return {
+                    key: front[ 0 ],
+                    operator: front[ 1 ],
+                    value: behind
+                };
+            });
+    };
+
+    var parseSort = function( sort ) {
+        return _.isArray( sort ) ? sort :
+            _.map( sort.replace( /^\s+|\s+$/g, '' ).split( /\s*,\s*/ ), function( current ) {
+                current = current.split( /\s+/ );
+                return {
+                    key: current[ 0 ],
+                    order: current[ 1 ]
+                };
+            });
+    };
+
+    var deepClone = function( obj ) {
         if ( _.isArray( obj ) ) {
             var out = [];
             var i = obj.length;
@@ -197,6 +211,35 @@
         return obj;
     };
 
-})();
-
-// yeah, mocker is not a mother fucker
+    return {
+        mock: function( cfgs ) {
+            var configs = _.extend( { template: {}, rate: 1000 }, cfgs );
+            var items = generateItems( configs );
+            return function dataSource( args ) {
+                setTimeout( function() {
+                    var result;
+                    if ( args.params.save ) {
+                        var item = _.isObject( args.params.save ) ? args.params.save : eval( '(' + args.params.save + ')' );
+                        result = saveItem( items, item, configs );
+                    } else if ( args.params.remove ) {
+                        var query = _.isArray( args.params.remove ) ? args.params.remove : parseQuery( args.params.remove );
+                        result = removeItems( items, query );
+                    } else if ( args.params.query ) {
+                        var params = _.extend( { skip: 0, limit: 1000000 }, args.params );
+                        var query = _.isArray( params.query ) ? params.query : parseQuery( params.query );
+                        var matchedItems = queryItems( items, query );
+                        if ( params.sort ) {
+                            var sort = _.isArray( params.sort ) ? params.sort : parseSort( params.sort );
+                            matchedItems = sortItems( matchedItems, sort );
+                        }
+                        result = {
+                            count: ( params.count === true ) ? matchedItems.length : null,
+                            list: matchedItems.slice( params.skip, params.skip + Math.min( params.limit, matchedItems.length - params.skip ) )
+                        };
+                    }
+                    _.isFunction( args.success ) && args.success( result );
+                }, configs.rate);
+            };
+        }
+    };
+});

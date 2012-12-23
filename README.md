@@ -1,4 +1,4 @@
-mocker
+Mocker
 ======
 
-Mocking dataSource by javascript, providing query and sort
+Mocking dataSource by javascript, providing save, remove, query and sort
