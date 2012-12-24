@@ -7,7 +7,7 @@
 //    var fruitsDataSource = Mocker.mock({
 //        template: { fact: 'suck' },
 //        amount: 100,
-//        idAttribute: 'id',
+//        idAttribute: 'id',                                      // or json full format: { key: 'id', prefix: 'fruit_' }
 //        timeAttribute: 'time',
 //        randomAttributes: [{
 //            key: 'type',
@@ -81,11 +81,14 @@
         var i = configs.amount;
         while ( i-- ) {
             var item = deepClone( configs.template );
-            configs.idAttribute && ( item[ configs.idAttribute ] = i );
+            if ( configs.idAttribute ) {
+                _.isString( configs.idAttribute ) && ( configs.idAttribute = { key: configs.idAttribute } );
+                item[ configs.idAttribute.key ] = _.uniqueId( configs.idAttribute.prefix );
+            }
             configs.timeAttribute && ( item[ configs.timeAttribute ] = timeSeed - 1000 * i );
             _.each( configs.randomAttributes, function( randomAttribute ) {
                 item[ randomAttribute.key ] = randomAttribute.values[ _.random( 0, randomAttribute.values.length - 1 ) ];
-            });
+        });
             items.unshift( item );
         }
         // to shuffle items order
@@ -93,14 +96,14 @@
     };
 
     var saveItem = function( items, item, configs ) {
-        if ( configs.idAttribute && item[ configs.idAttribute ] != null ) {
+        if ( configs.idAttribute && item[ configs.idAttribute.key ] != null ) {
             // update
             return _.extend( _.find( items, function( current ) {
-                return current[ configs.idAttribute ] === item[ configs.idAttribute ];
+                return current[ configs.idAttribute.key ] === item[ configs.idAttribute.key ];
             }), item );
         } else {
             // insert
-            configs.idAttribute && ( item[ configs.idAttribute ] = items.length );
+            configs.idAttribute && ( item[ configs.idAttribute.key ] = _.uniqueId( configs.idAttribute.prefix ) );
             items.unshift( deepClone( item ) );
             return item;
         }
@@ -167,9 +170,9 @@
         })( items, sort[ 0 ] );
     };
 
-    var parseQuery = function( queries ) {
-        return _.isArray( queries ) ? queries :
-            _.map( queries.replace( /^\s+|\s*\}\s*$/g, '' ).split( /\s*\}\s*\,\s*/ ), function( current ) {
+    var parseQuery = function( query ) {
+        return ( query == null || ( query = query.replace( /^\s+|\s+$/g, '' ), query === '' ) ) ? [] :
+            _.map( query.replace( /\s*\}$/g, '' ).split( /\s*\}\s*\,\s*/ ), function( current ) {
                 var divide = current.lastIndexOf('{');
                 var front = current.substring( 0, divide ).replace( /\s+$/, '' ).split( /\s+/ );
                 var behind = current.substring( divide + 1 ).replace( /^\s+/, '' );
@@ -182,8 +185,8 @@
     };
 
     var parseSort = function( sort ) {
-        return _.isArray( sort ) ? sort :
-            _.map( sort.replace( /^\s+|\s+$/g, '' ).split( /\s*,\s*/ ), function( current ) {
+        return ( sort == null || ( sort = sort.replace( /^\s+|\s+$/g, '' ), sort === '' ) ) ? [] :
+            _.map( sort.split( /\s*,\s*/ ), function( current ) {
                 current = current.split( /\s+/ );
                 return {
                     key: current[ 0 ],
@@ -224,7 +227,7 @@
                     } else if ( args.params.remove ) {
                         var query = _.isArray( args.params.remove ) ? args.params.remove : parseQuery( args.params.remove );
                         result = removeItems( items, query );
-                    } else if ( args.params.query ) {
+                    } else if ( args.params.query != null || args.params.sort != null ) {
                         var params = _.extend( { skip: 0, limit: 1000000 }, args.params );
                         var query = _.isArray( params.query ) ? params.query : parseQuery( params.query );
                         var matchedItems = queryItems( items, query );
