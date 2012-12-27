@@ -3,8 +3,7 @@ Mocker
 
 Mocking dataSource by javascript, providing save, remove, query and sort
 
-use Mocker.mock to create some data for test :
-   
+create eg.
   ```javascript
     var fruitsDataSource = Mocker.mock({
         template: { say: 'hello' },
@@ -27,14 +26,12 @@ use Mocker.mock to create some data for test :
     });
   ```
 
-you can aslo use with AMD.
-    
+or with AMD.
   ```javascript
     require( [ 'mocker' ], function( Mocker ) { } );
   ```
     
-the Mocking dataSource you create can do something query like :
-
+query eg.
   ```javascript
     fruitsDataSource({
         params: {
@@ -55,8 +52,7 @@ the Mocking dataSource you create can do something query like :
     });
   ```
     
-asol save :
-    
+save eg.
   ```javascript
     fruitsDataSource({
         params: {
@@ -72,8 +68,7 @@ asol save :
     });
   ```
 
-remove :
-
+remove eg.
   ```javascript
     fruitsDataSource({
         params: {
