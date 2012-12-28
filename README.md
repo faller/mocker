@@ -8,7 +8,10 @@ create eg.
     var fruitsDataSource = Mocker.mock({
         template: { say: 'hello' },
         amount: 100,
-        idAttribute: 'id',                                      // or json full format: { key: 'id', prefix: 'fruit_' }
+        
+        // or json full format: { key: 'id', prefix: 'fruit_' }
+        idAttribute: 'id',
+        
         randomAttributes: [{
             key: 'type',
             values: [ 'apple', 'banana', 'orange', 'grapes' ]
@@ -19,10 +22,14 @@ create eg.
             key: 'time',
             values: { min: 1325347200000, max: 1356883200000 }
         }],
-        onCreate: function( item ) {                            // item on create callback
+        
+        // item on create callback
+        onCreate: function( item ) {                            
             item.say = 'hi';
         },
-        delay: 1000                                             // simulate request & response delay
+        
+        // simulate request & response delay
+        delay: 1000                                            
     });
   ```
 
@@ -35,8 +42,13 @@ query eg.
   ```javascript
     fruitsDataSource({
         params: {
-            query: 'type gte {a}, type lte {z}, time gt {0}',   // or json format: [ { key: 'type', operator: 'like', value: 'apple' } ]
-            sort: 'type asc, time desc',                        // or json format: [ { key: 'time', order: 'desc' } ]
+            
+            // or json format: [ { key: 'type', operator: 'like', value: 'apple' } ]
+            query: 'type gte {a}, type lte {z}, time gt {0}',   
+            
+            // or json format: [ { key: 'time', order: 'desc' } ]
+            sort: 'type asc, time desc',
+            
             skip: 0,
             limit: 100,
             count: true
@@ -56,7 +68,9 @@ save eg.
   ```javascript
     fruitsDataSource({
         params: {
-            save: {                                             // or string format: "{ 'type': 'orange', 'taste': 'bad' }"
+            
+            // or string format: "{ 'type': 'orange', 'taste': 'bad' }"
+            save: {                                             
                 type: 'apple',
                 taste: 'awesome',
                 time: new Date().getTime()
@@ -72,7 +86,8 @@ remove eg.
   ```javascript
     fruitsDataSource({
         params: {
-            remove: 'taste eq {shit smells}'                    // or json format: [ { key: 'taste', operator: 'nq', value: 'awesome' } ]
+            // or json format: [ { key: 'taste', operator: 'nq', value: 'awesome' } ]
+            remove: 'taste eq {shit smells}'                    
         },
         success: function( count ) {
             console.log( 'data count of remove: ' + count );
