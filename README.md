@@ -6,8 +6,8 @@ Mocking dataSource by javascript, providing save, remove, query and sort
 create eg.
   ```javascript
     var fruitsDataSource = Mocker.mock({
-        template: { say: 'hello' },
-        amount: 100,
+        template: { say: 'hello' },                             // or an array: [ {..}, {..} ]
+        amount: 100,                                            // it's necessary if template isn't an array
         idAttribute: 'id',                                      // or json full format: { key: 'id', prefix: 'fruit_' }
         randomAttributes: [{
             key: 'type',
