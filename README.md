@@ -22,6 +22,10 @@ create eg.
         onCreate: function( item ) {                            // item on create callback
             item.say = 'hi';
         },
+        onComplete: function( items ) {                         // items on complete callback
+            // you can add some statistics
+        },
+        shuffle: true,                                          // to shuffle items order
         delay: 1000                                             // simulate request & response delay
     });
   ```
